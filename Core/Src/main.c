@@ -19,10 +19,13 @@
 #include "main.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
+#include "usart.h"
 
 I2C_HandleTypeDef hi2c1;
+
 
 GPIO_TypeDef* row_ports[5] = { GPIOC, GPIOC, GPIOC, GPIOC, GPIOC };
 uint16_t      row_pins[5]  = { GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_4 };
@@ -44,6 +47,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 void Scan_Keyboard(void);
 void Update_Display(const char* text);
+void log_printf(const char *fmt, ...);
 
 int main(void)
 {
@@ -51,8 +55,10 @@ int main(void)
     SystemClock_Config();
     MX_GPIO_Init();
     MX_I2C1_Init();
+    MX_USART2_UART_Init();
 
     ssd1306_Init();
+    log_printf("System initialized.\r\n");
     Update_Display("Hello!");
     HAL_Delay(2000);
     Update_Display(display_buffer);
@@ -78,6 +84,16 @@ void Update_Display(const char* text)
     ssd1306_SetCursor(0, 0);
     ssd1306_WriteString((char*)text, Font_7x10, White);
     ssd1306_UpdateScreen();
+}
+
+void log_printf(const char *fmt, ...)
+{
+    char buffer[128];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
 }
 
 #define DEBOUNCE_DELAY 50
@@ -122,15 +138,21 @@ void Scan_Keyboard(void)
             last_press_time = now;
             key_hold_start_time = now;
 
+            log_printf("Key detected: %c\r\n", current_key);
+
             if (current_key == 'C')
             {
                 strcpy(display_buffer, "Press a key...");
+                log_printf("Action: Clear screen\r\n");
             }
             else if (current_key == '<')
             {
                 size_t len = strlen(display_buffer);
                 if (len > 0 && strcmp(display_buffer, "Press a key...") != 0)
+                {
                     display_buffer[len - 1] = '\0';
+                    log_printf("Action: Delete last char\r\n");
+                }
             }
             else
             {
@@ -142,6 +164,7 @@ void Scan_Keyboard(void)
                     size_t len = strlen(display_buffer);
                     display_buffer[len] = current_key;
                     display_buffer[len + 1] = '\0';
+                    log_printf("Action: Append char '%c'\r\n", current_key);
                 }
             }
         }
@@ -149,6 +172,7 @@ void Scan_Keyboard(void)
         {
             strcpy(display_buffer, "Press a key...");
             key_hold_start_time = now + 10000;
+            log_printf("Action: Hold-clear triggered\r\n");
         }
     }
     else if (key_is_pressed && (now - last_press_time > DEBOUNCE_DELAY))
@@ -242,15 +266,14 @@ void SystemClock_Config(void)
 
 void Error_Handler(void)
 {
+    log_printf("!! ERROR: System halted in Error_Handler()\r\n");
     __disable_irq();
-    while (1)
-    {
-    }
+    while (1) {}
 }
 
 #ifdef  USE_FULL_ASSERT
 void assert_failed(uint8_t *file, uint32_t line)
 {
-    // assert_param error handler
+    log_printf("ASSERT FAILED: %s:%lu\r\n", file, line);
 }
 #endif

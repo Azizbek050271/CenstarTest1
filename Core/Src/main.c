@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdarg.h>
 
+void log_printf(const char *fmt, ...);
 void SystemClock_Config(void);
 
 char display_buffer[40] = "Press a key...";
@@ -52,6 +53,7 @@ void Update_Display(const char* text)
     ssd1306_SetCursor(0, 0);
     ssd1306_WriteString((char*)text, Font_7x10, White);
     ssd1306_UpdateScreen();
+    log_printf("Update_Display: %s\r\n", text);
 }
 
 void Update_Display_2Lines(const char* line1, const char* line2)
@@ -62,7 +64,10 @@ void Update_Display_2Lines(const char* line1, const char* line2)
     ssd1306_SetCursor(0, 12);
     ssd1306_WriteString((char*)line2, Font_7x10, White);
     ssd1306_UpdateScreen();
+    log_printf("Update_Display_2Lines: %s | %s\r\n", line1, line2);
 }
+
+static uint8_t uart3_initialized = 0;
 
 void log_printf(const char *fmt, ...)
 {
@@ -71,7 +76,12 @@ void log_printf(const char *fmt, ...)
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
+
     HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+
+    if (uart3_initialized) {
+        HAL_UART_Transmit(&huart3, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
+    }
 }
 
 #define DEBOUNCE_DELAY 50
@@ -80,12 +90,15 @@ void log_printf(const char *fmt, ...)
 
 void Scan_Keyboard(void)
 {
+    // Ваш код для сканирования клавиатуры (без изменений)
     static uint32_t last_press_time = 0;
     static uint32_t key_hold_start_time = 0;
     static uint8_t key_is_pressed = 0;
 
     char current_key = 0;
     uint8_t key_detected = 0;
+    uint8_t detected_row = 0;
+    uint8_t detected_col = 0;
 
     for (uint8_t row = 0; row < 5; row++) {
         for (uint8_t r = 0; r < 5; r++)
@@ -97,6 +110,8 @@ void Scan_Keyboard(void)
             if (HAL_GPIO_ReadPin(col_ports[col], col_pins[col]) == GPIO_PIN_RESET) {
                 current_key = keymap[row][col];
                 key_detected = 1;
+                detected_row = row;
+                detected_col = col;
                 break;
             }
         }
@@ -111,7 +126,7 @@ void Scan_Keyboard(void)
             last_press_time = now;
             key_hold_start_time = now;
 
-            log_printf("Key detected: %c\r\n", current_key);
+            log_printf("Key detected: %c (Row: %d, Col: %d)\r\n", current_key, detected_row, detected_col);
 
             if (current_key == 'C') {
                 strcpy(display_buffer, "Press a key...");
@@ -161,21 +176,49 @@ void Scan_Keyboard(void)
         }
     } else if (key_is_pressed && (now - last_press_time > DEBOUNCE_DELAY)) {
         key_is_pressed = 0;
+        log_printf("Key released\r\n");
     }
 }
 
 int main(void)
 {
+    log_printf("Program start\r\n");
+
     HAL_Init();
+    log_printf("HAL_Init completed\r\n");
+
     SystemClock_Config();
+    log_printf("SystemClock_Config completed\r\n");
+
     MX_GPIO_Init();
+    log_printf("MX_GPIO_Init completed\r\n");
+
     MX_I2C1_Init();
+    log_printf("MX_I2C1_Init completed\r\n");
+
     MX_USART2_UART_Init();
+    log_printf("MX_USART2_UART_Init completed\r\n");
+
+    log_printf("Before MX_USART3_UART_Init\r\n");
+    MX_USART3_UART_Init();
+    uart3_initialized = 1;
+    log_printf("MX_USART3_UART_Init completed\r\n");
+
+    HAL_StatusTypeDef i2c_status = HAL_I2C_IsDeviceReady(&hi2c1, 0x78, 1, 100);
+    if (i2c_status != HAL_OK) {
+        log_printf("I2C device (SSD1306) not ready (%d)\r\n", i2c_status);
+    } else {
+        log_printf("I2C device (SSD1306) ready\r\n");
+    }
 
     ssd1306_Init();
+    log_printf("ssd1306_Init called\r\n");
+
     Update_Display("Hello!");
     HAL_Delay(2000);
     Update_Display(display_buffer);
+
+    log_printf("Entering main loop\r\n");
 
     while (1) {
         Scan_Keyboard();
@@ -217,6 +260,7 @@ void SystemClock_Config(void)
 
 void Error_Handler(void)
 {
+    log_printf("Error_Handler triggered\r\n");
     __disable_irq();
     while (1) {}
 }
@@ -224,6 +268,5 @@ void Error_Handler(void)
 #ifdef USE_FULL_ASSERT
 void assert_failed(uint8_t *file, uint32_t line)
 {
-    // Optional
 }
 #endif

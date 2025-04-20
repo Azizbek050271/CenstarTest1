@@ -55,3 +55,8 @@ MX_*.ioc
 # Ignore firmware image archives
 *.tar.gz
 *.bin.gz
+
+# SSD1306 build artifacts
+Drivers/SSD1306/*.o
+Drivers/SSD1306/*.d
+

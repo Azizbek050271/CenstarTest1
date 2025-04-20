@@ -23,9 +23,9 @@
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
 #include "usart.h"
+#include "eeprom.h"
 
 I2C_HandleTypeDef hi2c1;
-
 
 GPIO_TypeDef* row_ports[5] = { GPIOC, GPIOC, GPIOC, GPIOC, GPIOC };
 uint16_t      row_pins[5]  = { GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_4 };
@@ -152,6 +152,56 @@ void Scan_Keyboard(void)
                 {
                     display_buffer[len - 1] = '\0';
                     log_printf("Action: Delete last char\r\n");
+                }
+            }
+            else if (current_key == 'G')
+            {
+                uint8_t len = strlen(display_buffer);
+                if (len > 0 && strcmp(display_buffer, "Press a key...") != 0)
+                {
+                    uint8_t data[41] = {0};
+                    data[0] = len;
+                    memcpy(&data[1], display_buffer, len);
+                    if (EEPROM_Write(0x0000, data, len + 1) == HAL_OK){
+                        log_printf("EEPROM: Saved buffer [%.*s] at 0x0000\r\n", len, display_buffer);
+                    Update_Display("Write EEPROM");
+                    HAL_Delay(1000);
+                    Update_Display(display_buffer);
+
+                    }
+                    else
+                        log_printf("EEPROM ERROR: Write failed\r\n");
+                }
+                else
+                {
+                    log_printf("EEPROM WARNING: Nothing to write\r\n");
+                }
+            }
+            else if (current_key == 'H')
+            {
+                uint8_t len = 0;
+                if (EEPROM_Read(0x0000, &len, 1) == HAL_OK && len < sizeof(display_buffer))
+                {
+                    char eeprom_buf[40] = {0};
+                    if (EEPROM_Read(0x0001, (uint8_t*)eeprom_buf, len) == HAL_OK)
+                    {
+                        eeprom_buf[len] = '\0';
+                        strncpy(display_buffer, eeprom_buf, sizeof(display_buffer) - 1);
+                        log_printf("EEPROM: Loaded [%s] from 0x0000\r\n", display_buffer);
+                        Update_Display("Read EEPROM");
+                        HAL_Delay(1000);
+                        Update_Display(display_buffer);
+
+
+                    }
+                    else
+                    {
+                        log_printf("EEPROM ERROR: Read body failed\r\n");
+                    }
+                }
+                else
+                {
+                    log_printf("EEPROM ERROR: Read length failed or too long\r\n");
                 }
             }
             else

@@ -1,0 +1,35 @@
+// /Inc/config.h
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <stdint.h>
+#include "eeprom_storage.h"  // для определения proto_id_t и language_id_t
+
+// Адрес в EEPROM, с которого хранится структура конфигурации
+#define EEPROM_CONFIG_ADDR      0x0000U
+
+// Значения по умолчанию для конфигурации
+#define DEFAULT_PROTOCOL_ID     PROTO_ID_GASKITLINK
+#define DEFAULT_UART3_BAUD      9600U
+#define DEFAULT_PRICE_CENT      0U
+#define DEFAULT_POST_ADDR       0x00U
+#define DEFAULT_NOZZLE_ADDR     0x01U
+#define DEFAULT_LANGUAGE_ID     LANG_EN
+
+// Размер кольцевого буфера для приёма по UART3 (TRK)
+#define TRK_RX_BUF_SIZE         256U
+
+// Таймауты протокола GasKitLink (в миллисекундах)
+#define PROTO_TIMEOUT_MS            50U   // максимальное время ожидания ответа ts
+#define PROTO_INTERFRAME_TIMEOUT_MS  3U   // межкадровый таймаут tif
+
+// Таймаут меню (авто‑выход из меню) (ms)
+#define MENU_TIMEOUT_MS          30000U
+
+// Идентификаторы таймеров в модуле app_timer
+#define TIMER_PROTO_RESPONSE     0
+#define TIMER_PROTO_INTERFRAME   1
+#define TIMER_MENU_TIMEOUT       2
+#define APP_TIMER_COUNT          3
+
+#endif // CONFIG_H

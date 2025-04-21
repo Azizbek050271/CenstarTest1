@@ -1,228 +1,62 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Основная программа
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * Все права защищены.
-  *
-  * Это программное обеспечение лицензировано на условиях, указанных в файле LICENSE
-  * в корневой директории данного программного компонента.
-  * Если файл LICENSE отсутствует, ПО предоставляется "КАК ЕСТЬ".
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
+// /Src/main.c
 #include "main.h"
+#include "gpio.h"
 #include "i2c.h"
 #include "usart.h"
-#include "gpio.h"
-#include "ssd1306.h"
-#include "ssd1306_fonts.h"
-#include "eeprom.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include "config.h"
+#include "uart_logger.h"
+#include "display.h"
+#include "keyboard.h"
+#include "app_timer.h"
+#include "fsm.h"
+#include "protocol_gaskit.h"
 
-void log_printf(const char *fmt, ...);
 void SystemClock_Config(void);
-
-char display_buffer[40] = "Press a key...";
-char eeprom_data[40] = "";
-
-GPIO_TypeDef* row_ports[5] = { GPIOC, GPIOC, GPIOC, GPIOC, GPIOC };
-uint16_t      row_pins[5]  = { GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_2, GPIO_PIN_3, GPIO_PIN_4 };
-GPIO_TypeDef* col_ports[4] = { GPIOB, GPIOB, GPIOB, GPIOB };
-uint16_t      col_pins[4]  = { GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_11, GPIO_PIN_12 };
-
-char keymap[5][4] = {
-    { 'A', 'F', 'G', 'H' },
-    { 'B', '1', '2', '3' },
-    { 'C', '4', '5', '6' },
-    { 'D', '7', '8', '9' },
-    { 'E', '*', '0', '<' }
-};
-
-void Update_Display(const char* text)
-{
-    ssd1306_Fill(Black);
-    ssd1306_SetCursor(0, 0);
-    ssd1306_WriteString((char*)text, Font_7x10, White);
-    ssd1306_UpdateScreen();
-    log_printf("Update_Display: %s\r\n", text);
-}
-
-void Update_Display_2Lines(const char* line1, const char* line2)
-{
-    ssd1306_Fill(Black);
-    ssd1306_SetCursor(0, 0);
-    ssd1306_WriteString((char*)line1, Font_7x10, White);
-    ssd1306_SetCursor(0, 12);
-    ssd1306_WriteString((char*)line2, Font_7x10, White);
-    ssd1306_UpdateScreen();
-    log_printf("Update_Display_2Lines: %s | %s\r\n", line1, line2);
-}
-
-static uint8_t uart3_initialized = 0;
-
-void log_printf(const char *fmt, ...)
-{
-    char buffer[128];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-
-    HAL_UART_Transmit(&huart2, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-
-    if (uart3_initialized) {
-        HAL_UART_Transmit(&huart3, (uint8_t*)buffer, strlen(buffer), HAL_MAX_DELAY);
-    }
-}
-
-#define DEBOUNCE_DELAY 50
-#define HOLD_CLEAR_DELAY 1000
-#define EEPROM_ADDR 0x00
-
-void Scan_Keyboard(void)
-{
-    // Ваш код для сканирования клавиатуры (без изменений)
-    static uint32_t last_press_time = 0;
-    static uint32_t key_hold_start_time = 0;
-    static uint8_t key_is_pressed = 0;
-
-    char current_key = 0;
-    uint8_t key_detected = 0;
-    uint8_t detected_row = 0;
-    uint8_t detected_col = 0;
-
-    for (uint8_t row = 0; row < 5; row++) {
-        for (uint8_t r = 0; r < 5; r++)
-            HAL_GPIO_WritePin(row_ports[r], row_pins[r], (r == row) ? GPIO_PIN_RESET : GPIO_PIN_SET);
-
-        HAL_Delay(1);
-
-        for (uint8_t col = 0; col < 4; col++) {
-            if (HAL_GPIO_ReadPin(col_ports[col], col_pins[col]) == GPIO_PIN_RESET) {
-                current_key = keymap[row][col];
-                key_detected = 1;
-                detected_row = row;
-                detected_col = col;
-                break;
-            }
-        }
-        if (key_detected) break;
-    }
-
-    uint32_t now = HAL_GetTick();
-
-    if (key_detected) {
-        if (!key_is_pressed && (now - last_press_time > DEBOUNCE_DELAY)) {
-            key_is_pressed = 1;
-            last_press_time = now;
-            key_hold_start_time = now;
-
-            log_printf("Key detected: %c (Row: %d, Col: %d)\r\n", current_key, detected_row, detected_col);
-
-            if (current_key == 'C') {
-                strcpy(display_buffer, "Press a key...");
-                Update_Display(display_buffer);
-                log_printf("Action: Clear screen\r\n");
-
-            } else if (current_key == '<') {
-                size_t len = strlen(display_buffer);
-                if (len > 0 && strcmp(display_buffer, "Press a key...") != 0) {
-                    display_buffer[len - 1] = '\0';
-                    Update_Display(display_buffer);
-                    log_printf("Action: Delete last char\r\n");
-                }
-
-            } else if (current_key == 'G') {
-                HAL_StatusTypeDef res = EEPROM_Write(EEPROM_ADDR, (uint8_t*)display_buffer, strlen(display_buffer)+1);
-                log_printf("Action: Write EEPROM (%d)\r\n", res);
-                Update_Display("Write EEPROM");
-                HAL_Delay(1000);
-                Update_Display(display_buffer);
-
-            } else if (current_key == 'H') {
-                memset(eeprom_data, 0, sizeof(eeprom_data));
-                HAL_StatusTypeDef res = EEPROM_Read(EEPROM_ADDR, (uint8_t*)eeprom_data, sizeof(eeprom_data));
-                log_printf("Action: Read EEPROM (%d)\r\n", res);
-                Update_Display_2Lines("Read EEPROM", eeprom_data);
-                HAL_Delay(1000);
-                Update_Display(display_buffer);
-
-            } else {
-                if (strcmp(display_buffer, "Press a key...") == 0)
-                    display_buffer[0] = '\0';
-
-                if (strlen(display_buffer) < sizeof(display_buffer) - 1) {
-                    size_t len = strlen(display_buffer);
-                    display_buffer[len] = current_key;
-                    display_buffer[len + 1] = '\0';
-                    Update_Display(display_buffer);
-                    log_printf("Action: Append char '%c'\r\n", current_key);
-                }
-            }
-        } else if (key_is_pressed && current_key == 'C' && (now - key_hold_start_time > HOLD_CLEAR_DELAY)) {
-            strcpy(display_buffer, "Press a key...");
-            Update_Display(display_buffer);
-            key_hold_start_time = now + 10000;
-            log_printf("Action: Hold-clear triggered\r\n");
-        }
-    } else if (key_is_pressed && (now - last_press_time > DEBOUNCE_DELAY)) {
-        key_is_pressed = 0;
-        log_printf("Key released\r\n");
-    }
-}
 
 int main(void)
 {
-    log_printf("Program start\r\n");
-
+    // --------------------
+    // Базовая инициализация
+    // --------------------
     HAL_Init();
-    log_printf("HAL_Init completed\r\n");
-
     SystemClock_Config();
-    log_printf("SystemClock_Config completed\r\n");
 
     MX_GPIO_Init();
-    log_printf("MX_GPIO_Init completed\r\n");
-
     MX_I2C1_Init();
-    log_printf("MX_I2C1_Init completed\r\n");
-
     MX_USART2_UART_Init();
-    log_printf("MX_USART2_UART_Init completed\r\n");
-
-    log_printf("Before MX_USART3_UART_Init\r\n");
     MX_USART3_UART_Init();
-    uart3_initialized = 1;
-    log_printf("MX_USART3_UART_Init completed\r\n");
 
-    HAL_StatusTypeDef i2c_status = HAL_I2C_IsDeviceReady(&hi2c1, 0x78, 1, 100);
-    if (i2c_status != HAL_OK) {
-        log_printf("I2C device (SSD1306) not ready (%d)\r\n", i2c_status);
-    } else {
-        log_printf("I2C device (SSD1306) ready\r\n");
-    }
+    // --------------------
+    // Инициализация модулей
+    // --------------------
+    Logger_Init();      // логирование по USART2
+    Display_Init();     // OLED-дисплей
+    Keyboard_Init();    // клавиатура 5×4
 
-    ssd1306_Init();
-    log_printf("ssd1306_Init called\r\n");
+    FSM_Init();         // FSM + EEPROM + Protocol init
 
-    Update_Display("Hello!");
-    HAL_Delay(2000);
-    Update_Display(display_buffer);
-
-    log_printf("Entering main loop\r\n");
-
+    // --------------------
+    // Главный цикл
+    // --------------------
     while (1) {
-        Scan_Keyboard();
-        HAL_Delay(50);
+        char key;
+        // 1) Обработка нажатий клавиш
+        if (Keyboard_Scan(&key)) {
+            FSM_EventKey(key);
+        }
+
+        // 2) Попытка принять кадр от ТРК (UART3)
+        uint8_t frame[GASKIT_MAX_FRAME_SIZE];
+        size_t  len;
+        if (Protocol_GasKitLink.recv_resp(frame, &len, PROTO_INTERFRAME_TIMEOUT_MS) == PROTO_OK) {
+            gaskit_parsed_t parsed;
+            if (Protocol_GasKitLink.parse(frame, len, &parsed) == PROTO_OK) {
+                FSM_EventProtocol(&parsed);
+            }
+        }
+
+        // 3) Тикер FSM (таймауты меню и протокола)
+        FSM_Tick();
     }
 }
 
@@ -235,24 +69,25 @@ void SystemClock_Config(void)
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
     RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    RCC_OscInitStruct.PLL.PLLM = 8;
-    RCC_OscInitStruct.PLL.PLLN = 336;
-    RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-    RCC_OscInitStruct.PLL.PLLQ = 7;
+    RCC_OscInitStruct.HSEState       = RCC_HSE_ON;
+    RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM       = 8;
+    RCC_OscInitStruct.PLL.PLLN       = 336;
+    RCC_OscInitStruct.PLL.PLLP       = RCC_PLLP_DIV2;
+    RCC_OscInitStruct.PLL.PLLQ       = 7;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
         Error_Handler();
     }
 
-    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                                |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK   |
+                                       RCC_CLOCKTYPE_SYSCLK |
+                                       RCC_CLOCKTYPE_PCLK1  |
+                                       RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
-
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
         Error_Handler();
     }
@@ -260,13 +95,14 @@ void SystemClock_Config(void)
 
 void Error_Handler(void)
 {
-    log_printf("Error_Handler triggered\r\n");
     __disable_irq();
     while (1) {}
 }
 
-#ifdef USE_FULL_ASSERT
+#ifdef  USE_FULL_ASSERT
 void assert_failed(uint8_t *file, uint32_t line)
 {
+    // Пользователь может добавить вывод в лог:
+    // LOG_ERROR("ASSERT failed: %s:%lu", file, (unsigned long)line);
 }
 #endif

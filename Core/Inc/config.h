@@ -32,4 +32,13 @@
 #define TIMER_MENU_TIMEOUT       2
 #define APP_TIMER_COUNT          3
 
+// Раскладка клавиш меню
+#define KEY_LEFT     'G'
+#define KEY_RIGHT    'H'
+#define KEY_ACCEPT   'B'
+#define KEY_DECLINE  'C'
+#define KEY_CONFIRM  'K'
+#define KEY_CANCEL   'E'
+#define KEY_POINT    '*'
+
 #endif // CONFIG_H

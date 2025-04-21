@@ -28,20 +28,15 @@ static uint8_t        sel_index;
 static char           input_buf[16];
 static uint8_t        input_len;
 
-// Количество пунктов в главном меню
 #define MAIN_ITEMS_COUNT   8
-// Количество пунктов в подменю протоколов
 #define PROTO_ITEMS_COUNT  2
-// Количество пунктов в подменю UART
 #define UART_ITEMS_COUNT   4
-// Количество пунктов в подменю языков
 #define LANG_ITEMS_COUNT   3
 
 static const uint32_t uart_bauds[UART_ITEMS_COUNT] = {
     9600, 19200, 38400, 115200
 };
 
-// Вспомогательный вывод текущего пункта
 static void menu_display_current(void)
 {
     char buf1[21], buf2[21];
@@ -50,13 +45,11 @@ static void menu_display_current(void)
     switch (menu_level) {
     case MENU_MAIN:
         snprintf(buf1, 21, "%s", Str_MenuTitle_Main(lang));
-        snprintf(buf2, 21, "%s",
-            Str_MainMenu_Value(lang, sel_index, menu_cfg));
+        snprintf(buf2, 21, "%s", Str_MainMenu_Value(lang, sel_index, menu_cfg));
         break;
     case MENU_PROTOCOL:
         snprintf(buf1, 21, "%s", Str_MenuTitle_Protocol(lang));
-        snprintf(buf2, 21, "%s",
-            Str_ProtocolMenu_Value(lang, sel_index));
+        snprintf(buf2, 21, "%s", Str_ProtocolMenu_Value(lang, sel_index));
         break;
     case MENU_UART:
         snprintf(buf1, 21, "%s", Str_MenuTitle_UART3(lang));
@@ -64,8 +57,7 @@ static void menu_display_current(void)
         break;
     case MENU_LANGUAGE:
         snprintf(buf1, 21, "%s", Str_MenuTitle_Language(lang));
-        snprintf(buf2, 21, "%s",
-            Str_LanguageMenu_Value(lang, sel_index));
+        snprintf(buf2, 21, "%s", Str_LanguageMenu_Value(lang, sel_index));
         break;
     case MENU_PRICE:
         snprintf(buf1, 21, "%s", Str_MenuTitle_Price(lang));
@@ -83,7 +75,6 @@ static void menu_display_current(void)
     Display_ShowTwoLines(buf1, buf2);
 }
 
-// Переводит строку input_buf в uint32 для цены (XXX.XX)
 static uint32_t parse_price(const char *s)
 {
     uint32_t value = 0;
@@ -121,129 +112,85 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
 
     switch (menu_level) {
     case MENU_MAIN:
-        if (key == 'A') {
+        if (key == KEY_LEFT) {
             sel_index = (sel_index + MAIN_ITEMS_COUNT - 1) % MAIN_ITEMS_COUNT;
             menu_display_current();
-        } else if (key == 'B') {
+        } else if (key == KEY_RIGHT) {
             sel_index = (sel_index + 1) % MAIN_ITEMS_COUNT;
             menu_display_current();
-        } else if (key == 'K') {
-            // Выбран пункт
+        } else if (key == KEY_CONFIRM) {
             switch (sel_index) {
-            case 0: // Протокол
-                menu_level = MENU_PROTOCOL;
-                sel_index = cfg->protocol - 1;
-                break;
-            case 1: // UART3
-                menu_level = MENU_UART;
-                // найти текущий индекс
-                for (uint8_t i=0;i<UART_ITEMS_COUNT;i++)
-                    if (uart_bauds[i]==cfg->price_cent) { sel_index=i; break; }
-                break;
-            case 2: // Цена
-                menu_level = MENU_PRICE;
-                snprintf(input_buf, sizeof(input_buf), "%u.%02u",
-                    (unsigned)(cfg->price_cent/100),
-                    (unsigned)(cfg->price_cent%100));
-                input_len = strlen(input_buf);
-                break;
-            case 3: // Адрес поста
-                menu_level = MENU_POSTADDR;
-                snprintf(input_buf, sizeof(input_buf), "%02u",
-                    (unsigned)cfg->protocol); // заглушка
-                input_len = strlen(input_buf);
-                break;
-            case 4: // Адрес рукава
-                menu_level = MENU_NOZZLEADDR;
-                snprintf(input_buf, sizeof(input_buf), "%02u",
-                    (unsigned)cfg->post_addr); // заглушка
-                input_len = strlen(input_buf);
-                break;
-            case 5: // Язык
-                menu_level = MENU_LANGUAGE;
-                sel_index = cfg->language_id - 1;
-                break;
-            case 6: // Сохранить и выйти
-                Menu_Exit(cfg, true);
-                return;
-            case 7: // Отмена и выйти
-                Menu_Exit(cfg, false);
-                return;
+            case 0: menu_level = MENU_PROTOCOL; sel_index = cfg->protocol - 1; break;
+            case 1: menu_level = MENU_UART; for (uint8_t i = 0; i < UART_ITEMS_COUNT; i++) if (uart_bauds[i] == cfg->price_cent) { sel_index = i; break; } break;
+            case 2: menu_level = MENU_PRICE; snprintf(input_buf, sizeof(input_buf), "%u.%02u", (unsigned)(cfg->price_cent / 100), (unsigned)(cfg->price_cent % 100)); input_len = strlen(input_buf); break;
+            case 3: menu_level = MENU_POSTADDR; snprintf(input_buf, sizeof(input_buf), "%02u", (unsigned)cfg->protocol); input_len = strlen(input_buf); break;
+            case 4: menu_level = MENU_NOZZLEADDR; snprintf(input_buf, sizeof(input_buf), "%02u", (unsigned)cfg->post_addr); input_len = strlen(input_buf); break;
+            case 5: menu_level = MENU_LANGUAGE; sel_index = cfg->language_id - 1; break;
+            case 6: Menu_Exit(cfg, true); return;
+            case 7: Menu_Exit(cfg, false); return;
             }
             menu_display_current();
         }
         break;
 
     case MENU_PROTOCOL:
-        if (key == 'A') {
+        if (key == KEY_LEFT) {
             sel_index = (sel_index + PROTO_ITEMS_COUNT - 1) % PROTO_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'B') {
+        } else if (key == KEY_RIGHT) {
             sel_index = (sel_index + 1) % PROTO_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'K') {
+        } else if (key == KEY_CONFIRM) {
             cfg->protocol = (proto_id_t)(sel_index + 1);
             menu_level = MENU_MAIN;
             sel_index = 0;
-            menu_display_current();
-        } else if (key == 'E') {
+        } else if (key == KEY_CANCEL) {
             menu_level = MENU_MAIN;
             sel_index = 0;
-            menu_display_current();
         }
+        menu_display_current();
         break;
 
     case MENU_UART:
-        if (key == 'A') {
+        if (key == KEY_LEFT) {
             sel_index = (sel_index + UART_ITEMS_COUNT - 1) % UART_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'B') {
+        } else if (key == KEY_RIGHT) {
             sel_index = (sel_index + 1) % UART_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'K') {
-            cfg->post_addr = uart_bauds[sel_index]; // заглушка поля
+        } else if (key == KEY_CONFIRM) {
+            cfg->post_addr = uart_bauds[sel_index];
             menu_level = MENU_MAIN;
             sel_index = 1;
-            menu_display_current();
-        } else if (key == 'E') {
+        } else if (key == KEY_CANCEL) {
             menu_level = MENU_MAIN;
             sel_index = 1;
-            menu_display_current();
         }
+        menu_display_current();
         break;
 
     case MENU_LANGUAGE:
-        if (key == 'A') {
+        if (key == KEY_LEFT) {
             sel_index = (sel_index + LANG_ITEMS_COUNT - 1) % LANG_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'B') {
+        } else if (key == KEY_RIGHT) {
             sel_index = (sel_index + 1) % LANG_ITEMS_COUNT;
-            menu_display_current();
-        } else if (key == 'K') {
+        } else if (key == KEY_CONFIRM) {
             cfg->language_id = (language_id_t)(sel_index + 1);
             menu_level = MENU_MAIN;
             sel_index = 5;
-            menu_display_current();
-        } else if (key == 'E') {
+        } else if (key == KEY_CANCEL) {
             menu_level = MENU_MAIN;
             sel_index = 5;
-            menu_display_current();
         }
+        menu_display_current();
         break;
 
     case MENU_PRICE:
     case MENU_POSTADDR:
     case MENU_NOZZLEADDR:
-        // Ввод числовых символов, '*' - точка только для цены
-        if ((key >= '0' && key <= '9') ||
-            (menu_level == MENU_PRICE && key == '*')) {
-            if (input_len < sizeof(input_buf)-1) {
-                input_buf[input_len++] = (key=='*') ? '.' : key;
+        if ((key >= '0' && key <= '9') || (menu_level == MENU_PRICE && key == KEY_POINT)) {
+            if (input_len < sizeof(input_buf) - 1) {
+                input_buf[input_len++] = (key == KEY_POINT) ? '.' : key;
                 input_buf[input_len] = '\0';
                 menu_display_current();
             }
-        } else if (key == 'K') {
-            // Сохранить ввод
+        } else if (key == KEY_CONFIRM) {
             if (menu_level == MENU_PRICE) {
                 cfg->price_cent = parse_price(input_buf);
                 sel_index = 2;
@@ -256,10 +203,8 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
             }
             menu_level = MENU_MAIN;
             menu_display_current();
-        } else if (key == 'E') {
-            // Отменить ввод
+        } else if (key == KEY_CANCEL) {
             menu_level = MENU_MAIN;
-            // sel_index сохраняется
             menu_display_current();
         }
         break;

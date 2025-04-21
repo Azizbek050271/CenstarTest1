@@ -139,10 +139,8 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
     case MENU_MAIN:
         if (key == KEY_LEFT) {
             sel_index = (sel_index + MAIN_ITEMS_COUNT - 1) % MAIN_ITEMS_COUNT;
-            menu_display_current();
         } else if (key == KEY_RIGHT) {
             sel_index = (sel_index + 1) % MAIN_ITEMS_COUNT;
-            menu_display_current();
         } else if (key == KEY_CONFIRM) {
             switch (sel_index) {
             case 0: menu_level = MENU_PROTOCOL; sel_index = cfg->protocol - 1; break;
@@ -154,11 +152,11 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
             case 6: Menu_Exit(cfg, true); return;
             case 7: Menu_Exit(cfg, false); return;
             }
-            menu_display_current();
         } else if (key == KEY_CANCEL) {
             Menu_Exit(cfg, false);
             return;
         }
+        menu_display_current();
         break;
 
     case MENU_PROTOCOL:
@@ -227,7 +225,6 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
             if (input_len < sizeof(input_buf) - 1) {
                 input_buf[input_len++] = (key == KEY_POINT) ? '.' : key;
                 input_buf[input_len] = '\0';
-                menu_display_current();
             }
             cancel_pressed = false;
         } else if (key == KEY_CONFIRM) {
@@ -254,10 +251,9 @@ void Menu_HandleKey(char key, eeprom_config_t *cfg)
                 cancel_pressed = true;
             } else {
                 menu_level = MENU_MAIN;
-                menu_display_current();
             }
-            menu_display_current();
         }
+        menu_display_current();
         break;
     }
 }

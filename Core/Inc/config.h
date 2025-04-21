@@ -31,6 +31,7 @@ typedef enum {
     TIMER_PROTO_INTERFRAME,
     TIMER_MENU_TIMEOUT,
     TIMER_MENU_MESSAGE,
+	 TIMER_WELCOME,  // добавить сюда
     TIMER_COUNT
 } TimerId;
 

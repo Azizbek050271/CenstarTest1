@@ -14,7 +14,11 @@ typedef enum {
     SM_FUELLING,     ///< Идёт заправка
     SM_STOP,         ///< Остановка/финализация
     SM_END,          ///< Конец транзакции
-    SM_MENU          ///< Режим меню настроек
+    SM_MENU,         ///< Режим меню настроек
+    SM_MODE_SELECT,  ///< Выбор режима отпуска
+    SM_VALUE_INPUT,  ///< Ввод объёма
+    SM_AMOUNT_INPUT, ///< Ввод суммы
+    SM_FULL_MODE     ///< Отпуск до полного бака
 } fsm_state_t;
 
 /**

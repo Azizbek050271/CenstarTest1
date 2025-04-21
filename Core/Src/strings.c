@@ -1,75 +1,68 @@
-// /Src/strings.c
 #include "strings.h"
+#include "config.h"
 #include <stdio.h>
+#include <string.h>
 
-// Главный заголовок
 const char* Str_MenuTitle_Main(language_id_t lang) {
     switch (lang) {
-    case LANG_RU: return "Главное меню:";
-    case LANG_UZ: return "Asosiy menyu:";  // заглушка
-    default:      return "Main menu:";
+    case LANG_EN: return "Main Menu";
+    case LANG_RU: return "Главное меню";
+    case LANG_UZ: return "Asosiy menyu";
+    default:      return "Menu";
     }
 }
 
-// Значение для пункта главного меню
-const char* Str_MainMenu_Value(language_id_t lang, uint8_t idx, const eeprom_config_t *cfg) {
-    static char buf[24];
-    buf[0] = '\0';
-    switch (idx) {
-    case 0:  // Protocol
-        switch (lang) {
-        case LANG_RU: snprintf(buf,21,"Протокол=%s", cfg->protocol==PROTO_ID_GASKITLINK?"GKitL":"AZT2"); break;
-        case LANG_UZ: snprintf(buf,21,"Protokol=%s",   cfg->protocol==PROTO_ID_GASKITLINK?"GKitL":"AZT2"); break;
-        default:      snprintf(buf,21,"Protocol=%s",    cfg->protocol==PROTO_ID_GASKITLINK?"GKitL":"AZT2"); break;
-        }
+const char* Str_MainMenu_Value(language_id_t lang, uint8_t index, const eeprom_config_t* cfg) {
+    static char buf[21];
+    switch (index) {
+    case 0:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Протокол:%s" : "Protocol:%s",
+                 cfg->protocol == PROTO_ID_GASKITLINK ? "GKitL" : "AZT2");
         break;
-    case 1:  // UART3
-        snprintf(buf,21,"UART3=%lu", (unsigned long)cfg->reserved[0]); // заглушка: хранится в reserved[0]
+    case 1:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "UART3:%lu" : "UART3:%lu",
+                 (unsigned long)cfg->uart3_baud);
         break;
-    case 2:  // Price
-        snprintf(buf,21,"Price=%u.%02u",
-            (unsigned)(cfg->price_cent/100),
-            (unsigned)(cfg->price_cent%100));
+    case 2:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Цена:%u.%02u" : "Price:%u.%02u",
+                 (unsigned)(cfg->price_cent / 100), (unsigned)(cfg->price_cent % 100));
         break;
-    case 3:  // PostAddr
-        snprintf(buf,21,"Post=%02u", (unsigned)cfg->reserved[1]); // заглушка
+    case 3:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Пост:%u" : "Post:%u",
+                 cfg->post_addr);
         break;
-    case 4:  // NozzleAddr
-        snprintf(buf,21,"Nozzle=%02u", (unsigned)cfg->reserved[2]); // заглушка
+    case 4:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Рукав:%u" : "Nozzle:%u",
+                 cfg->nozzle_addr);
         break;
-    case 5:  // Language
+    case 5:
         switch (cfg->language_id) {
-        case LANG_RU: snprintf(buf,21,"Language=RU"); break;
-        case LANG_UZ: snprintf(buf,21,"Language=UZ"); break;
-        default:      snprintf(buf,21,"Language=EN"); break;
+        case LANG_RU: snprintf(buf, sizeof(buf), "Язык:RU"); break;
+        case LANG_UZ: snprintf(buf, sizeof(buf), "Язык:UZ"); break;
+        default:      snprintf(buf, sizeof(buf), "Language:EN"); break;
         }
         break;
-    case 6:  // Save & Exit
-        switch (lang) {
-        case LANG_RU: return "Сохранить и выйти";
-        case LANG_UZ: return "Saqlash & Chiqish";  // заглушка
-        default:      return "Save & Exit";
-        }
-    case 7:  // Cancel
-        switch (lang) {
-        case LANG_RU: return "Отмена";
-        case LANG_UZ: return "Bekor qilish";      // заглушка
-        default:      return "Cancel";
-        }
+    case 6:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Сохранить" : "Save");
+        break;
+    case 7:
+        snprintf(buf, sizeof(buf), lang == LANG_RU ? "Отмена" : "Cancel");
+        break;
+    default:
+        buf[0] = '\0';
+        break;
     }
     return buf;
 }
 
-// Заголовок подменю протоколов
 const char* Str_MenuTitle_Protocol(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Выбор протокола:";
-    case LANG_UZ: return "Protokol tanlash:";  // заглушка
+    case LANG_UZ: return "Protokol tanlash:";
     default:      return "Select protocol:";
     }
 }
 
-// Значения в подменю протоколов
 const char* Str_ProtocolMenu_Value(language_id_t lang, uint8_t idx) {
     static const char *names_en[] = { "GasKitLink", "AZT2.0" };
     static const char *names_ru[] = { "GasKitLink", "АЗТ2.0" };
@@ -82,52 +75,46 @@ const char* Str_ProtocolMenu_Value(language_id_t lang, uint8_t idx) {
     }
 }
 
-// Заголовок UART3
 const char* Str_MenuTitle_UART3(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Скорость UART3:";
-    case LANG_UZ: return "UART3 tezligi:";     // заглушка
+    case LANG_UZ: return "UART3 tezligi:";
     default:      return "UART3 baud:";
     }
 }
 
-// Заголовок цены
 const char* Str_MenuTitle_Price(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Цена за литр:";
-    case LANG_UZ: return "Narx litr:";         // заглушка
+    case LANG_UZ: return "Narx litr:";
     default:      return "Price per L:";
     }
 }
 
-// Заголовок адреса поста
 const char* Str_MenuTitle_PostAddr(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Адрес поста:";
-    case LANG_UZ: return "Stansiya adi:";      // заглушка
+    case LANG_UZ: return "Stansiya adi:";
     default:      return "Post address:";
     }
 }
 
-// Заголовок адреса рукава
 const char* Str_MenuTitle_NozzleAddr(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Адрес рукава:";
-    case LANG_UZ: return "Shlangi adi:";       // заглушка
+    case LANG_UZ: return "Shlangi adi:";
     default:      return "Nozzle address:";
     }
 }
 
-// Заголовок выбора языка
 const char* Str_MenuTitle_Language(language_id_t lang) {
     switch (lang) {
     case LANG_RU: return "Выбор языка:";
-    case LANG_UZ: return "Tilni tanlash:";     // заглушка
+    case LANG_UZ: return "Tilni tanlash:";
     default:      return "Select language:";
     }
 }
 
-// Значения подменю языков
 const char* Str_LanguageMenu_Value(language_id_t lang, uint8_t idx) {
     static const char *vals_en[] = { "English", "Russian", "Uzbek" };
     static const char *vals_ru[] = { "Английский", "Русский", "Узбекский" };
@@ -138,4 +125,11 @@ const char* Str_LanguageMenu_Value(language_id_t lang, uint8_t idx) {
     case LANG_UZ: return vals_uz[idx];
     default:      return vals_en[idx];
     }
+}
+
+const char* Str_MenuSavedMessage(language_id_t lang, const char *field) {
+    static char msg[21];
+    if (lang == LANG_RU) snprintf(msg, sizeof(msg), "Сохранено: %s", field);
+    else                 snprintf(msg, sizeof(msg), "Saved: %s", field);
+    return msg;
 }

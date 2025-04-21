@@ -1,4 +1,3 @@
-// /Inc/config.h
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -20,17 +19,22 @@
 #define TRK_RX_BUF_SIZE         256U
 
 // Таймауты протокола GasKitLink (в миллисекундах)
-#define PROTO_TIMEOUT_MS            50U   // максимальное время ожидания ответа ts
-#define PROTO_INTERFRAME_TIMEOUT_MS  3U   // межкадровый таймаут tif
+#define PROTO_TIMEOUT_MS            50U
+#define PROTO_INTERFRAME_TIMEOUT_MS  3U
 
 // Таймаут меню (авто‑выход из меню) (ms)
 #define MENU_TIMEOUT_MS          30000U
 
-// Идентификаторы таймеров в модуле app_timer
-#define TIMER_PROTO_RESPONSE     0
-#define TIMER_PROTO_INTERFRAME   1
-#define TIMER_MENU_TIMEOUT       2
-#define APP_TIMER_COUNT          3
+// Перечисление таймеров
+typedef enum {
+    TIMER_PROTO_RESPONSE,
+    TIMER_PROTO_INTERFRAME,
+    TIMER_MENU_TIMEOUT,
+    TIMER_MENU_MESSAGE,
+    TIMER_COUNT
+} TimerId;
+
+#define APP_TIMER_COUNT TIMER_COUNT
 
 // Раскладка клавиш меню
 #define KEY_LEFT     'G'

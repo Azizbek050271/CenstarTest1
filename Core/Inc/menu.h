@@ -37,4 +37,7 @@ void Menu_Exit(eeprom_config_t *cfg, bool save);
  */
 bool Menu_IsActive(void);
 
+void Menu_Tick(void);
+
+
 #endif // MENU_H

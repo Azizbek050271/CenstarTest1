@@ -7,77 +7,82 @@
 #include "config.h"
 #include "eeprom_storage.h"
 
-// Текущее состояние FSM
-static fsm_state_t state;
+#define FSM_DEBUG 1
 
-// Текущая конфигурация, загруженная из EEPROM
+static fsm_state_t state;
 static eeprom_config_t cfg;
+
+#if FSM_DEBUG
+static const char* FSM_StateName(fsm_state_t s) {
+    switch (s) {
+    case SM_IDLE: return "IDLE";
+    case SM_MENU: return "MENU";
+    default: return "UNKNOWN";
+    }
+}
+#define LOG_FSM_STATE() LOG_INFO("FSM State = %s\n", FSM_StateName(state))
+#else
+#define LOG_FSM_STATE() do {} while(0)
+#endif
 
 void FSM_Init(void)
 {
-    // Инициализация EEPROM-хранилища
     if (!EepromStorage_Init()) {
-        LOG_ERROR("FSM_Init: EEPROM init failed");
+        LOG_ERROR("FSM_Init: EEPROM init failed\n");
     }
     EepromStorage_Load(&cfg);
 
-    // Инициализация протокола обмена с ТРК
     Protocol_GasKitLink.init();
-
-    // Инициализация модуля меню
     Menu_Init(&cfg);
 
-    // Вывод экрана ожидания
     Display_ShowIdle();
-
     state = SM_IDLE;
-    LOG_INFO("FSM initialized. State=SM_IDLE");
+    LOG_INFO("FSM initialized. State=SM_IDLE\n");
+    LOG_FSM_STATE();
 }
 
 void FSM_EventKey(char key)
 {
-    LOG_INFO("FSM_EventKey: %c", key);
+    LOG_INFO("FSM_EventKey: %c\n", key);
 
-    // Клавиша входа в меню
     if (key == 'F') {
         if (state != SM_MENU) {
             Menu_Enter(&cfg);
-            AppTimer_Start(TIMER_MENU_TIMEOUT, MENU_TIMEOUT_MS, false);
             state = SM_MENU;
-            LOG_INFO("Entered SM_MENU");
+            LOG_INFO("Entered SM_MENU\n");
+            LOG_FSM_STATE();
         }
         return;
     }
 
-    // Если в меню — передаём клавишу в модуль меню
     if (state == SM_MENU) {
         Menu_HandleKey(key, &cfg);
+
+        if (!Menu_IsActive()) {
+            state = SM_IDLE;
+            Display_ShowIdle();
+            LOG_INFO("FSM: Manual menu exit to SM_IDLE\n");
+            LOG_FSM_STATE();
+        }
         return;
     }
 
-    // TODO: обработка клавиш в рабочих состояниях (SM_IDLE, SM_TRANSACTION и т.д.)
+    // TODO: handle keys in other states if needed
 }
 
 void FSM_EventProtocol(const gaskit_parsed_t *resp)
 {
-    LOG_INFO("FSM_EventProtocol: addr=%u cmd=%c len=%u",
+    LOG_INFO("FSM_EventProtocol: addr=%u cmd=%c len=%u\n",
              resp->address, resp->cmd, (unsigned)resp->data_len);
 
-    // TODO: разбираем resp->cmd и resp->data в зависимости от state
-    // и переводим FSM в следующие состояния, обновляем дисплей и т.д.
+    // TODO: handle protocol events depending on FSM state
 }
 
 void FSM_Tick(void)
 {
-    // Авто-выход из меню по таймауту
-    if (state == SM_MENU && AppTimer_Expired(TIMER_MENU_TIMEOUT)) {
-        Menu_Exit(&cfg, false);
-        state = SM_IDLE;
-        Display_ShowIdle();
-        LOG_INFO("Menu timeout, back to SM_IDLE");
+    if (state == SM_MENU) {
+        Menu_Tick();
     }
 
-    // TODO: проверка таймаутов протокола:
-    // if (AppTimer_Expired(TIMER_PROTO_RESPONSE)) { ... }
-    // if (AppTimer_Expired(TIMER_PROTO_INTERFRAME)) { ... }
+    // TODO: handle protocol timeouts if needed
 }

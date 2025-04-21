@@ -7,10 +7,10 @@
 #define CONFIG_ADDR  EEPROM_CONFIG_ADDR
 #define CONFIG_SIZE  sizeof(eeprom_config_t)
 
-/** Вспомогательная: вычислить CRC16 от первых (CONFIG_SIZE - 2) байт */
-uint16_t CalcCrc(const eeprom_config_t *cfg)
+/** Вспомогательная: вычислить CRC XOR от первых (CONFIG_SIZE - 1) байт */
+uint8_t CalcCrc(const eeprom_config_t *cfg)
 {
-    return CRC16_Calc((const uint8_t*)cfg, CONFIG_SIZE - sizeof(cfg->crc));
+    return CRC_XOR_Calc((const uint8_t*)cfg, CONFIG_SIZE - sizeof(cfg->crc));
 }
 
 void EepromStorage_ResetDefaults(eeprom_config_t *cfg)
@@ -33,7 +33,7 @@ bool EepromStorage_Load(eeprom_config_t *cfg)
     if (cfg->version != EEPROM_CONFIG_VERSION) {
         return false;
     }
-    uint16_t expected = CalcCrc(cfg);
+    uint8_t expected = CalcCrc(cfg);
     if (cfg->crc != expected) {
         return false;
     }

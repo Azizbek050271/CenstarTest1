@@ -6,11 +6,11 @@
 #include <stddef.h>
 
 /**
- * @brief  Вираховує CRC-16 (поліном 0xA001) для заданого буфера даних.
- * @param  data Вказівник на вхідні дані
- * @param  len  Кількість байт у буфері
- * @return Обчислене значення CRC16
+ * @brief Вычисление CRC путём XOR всех байт (GasKitLink v1.2)
+ * @param data Указатель на байты, начиная со второго
+ * @param len  Длина (в байтах) от 3-го байта и далее
+ * @return Результат XOR, соответствующий ASCII-символу
  */
-uint16_t CRC16_Calc(const uint8_t *data, size_t len);
+uint8_t CRC_XOR_Calc(const uint8_t *data, size_t len);
 
 #endif // CRC_H

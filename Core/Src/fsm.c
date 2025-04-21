@@ -8,6 +8,7 @@
 #include "eeprom_storage.h"
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
+#include "stm32f4xx_hal.h"
 
 #define FSM_DEBUG 1
 #define START_MENU_TIMEOUT_MS 3000
@@ -15,6 +16,7 @@
 static fsm_state_t state;
 static eeprom_config_t cfg;
 static const TimerId IDLE_TIMER = TIMER_WELCOME;
+static uint8_t e_press_count = 0;
 
 #if FSM_DEBUG
 static const char* FSM_StateName(fsm_state_t s) {
@@ -51,7 +53,7 @@ static void FSM_ShowStartMenu(void)
     ssd1306_UpdateScreen();
 
     state = SM_MODE_SELECT;
-    LOG_INFO("FSM: Entered SM_MODE_SELECT\n");
+    LOG_INFO("FSM: Entered SM_MODE_SELECT @%lu\n", HAL_GetTick());
     LOG_FSM_STATE();
 }
 
@@ -68,13 +70,20 @@ void FSM_Init(void)
     Display_ShowIdle();
     AppTimer_Start(IDLE_TIMER, START_MENU_TIMEOUT_MS, false);
     state = SM_IDLE;
-    LOG_INFO("FSM initialized. State=SM_IDLE\n");
+    LOG_INFO("FSM initialized. State=SM_IDLE @%lu\n", HAL_GetTick());
     LOG_FSM_STATE();
 }
 
 void FSM_EventKey(char key)
 {
-    LOG_INFO("FSM_EventKey: %c\n", key);
+    LOG_INFO("FSM_EventKey: %c @%lu\n", key, HAL_GetTick());
+
+    if (state == SM_IDLE) {
+        if (key == 'E') {
+            FSM_ShowStartMenu();
+        }
+        return;
+    }
 
     if (key == 'F') {
         if (state != SM_MENU) {
@@ -117,7 +126,29 @@ void FSM_EventKey(char key)
             Display_ShowTwoLines("Full mode", "selected");
             break;
         }
+        e_press_count = 0;
         LOG_FSM_STATE();
+        return;
+    }
+
+    if (state == SM_VALUE_INPUT || state == SM_AMOUNT_INPUT || state == SM_FULL_MODE) {
+        if (key == 'E') {
+            e_press_count++;
+            LOG_INFO("FSM: E pressed %u time(s) @%lu\n", e_press_count, HAL_GetTick());
+            if (e_press_count == 1) {
+                Display_ShowTwoLines("Press E again", "to cancel");
+            } else if (e_press_count >= 2) {
+                e_press_count = 0;
+                state = SM_IDLE;
+                Display_ShowIdle();
+                AppTimer_Start(IDLE_TIMER, START_MENU_TIMEOUT_MS, false);
+                LOG_INFO("FSM: Exit to SM_IDLE @%lu\n", HAL_GetTick());
+                LOG_FSM_STATE();
+            }
+            return;
+        } else {
+            e_press_count = 0;
+        }
         return;
     }
 }
@@ -126,8 +157,6 @@ void FSM_EventProtocol(const gaskit_parsed_t *resp)
 {
     LOG_INFO("FSM_EventProtocol: addr=%u cmd=%c len=%u\n",
              resp->address, resp->cmd, (unsigned)resp->data_len);
-
-    // TODO: handle protocol events depending on FSM state
 }
 
 void FSM_Tick(void)
@@ -139,6 +168,4 @@ void FSM_Tick(void)
     if (state == SM_IDLE && AppTimer_Expired(IDLE_TIMER)) {
         FSM_ShowStartMenu();
     }
-
-    // TODO: handle protocol timeouts if needed
 }

@@ -53,8 +53,10 @@ proto_status_t Protocol_GasKitLink_recv_resp(uint8_t *frame,
                     uint8_t cs = Gaskit_CalcChecksum(frame, idx);
                     if (cs == frame[idx - 1]) {
                         *len = idx;
+                        UartLogger_Hex("UART_RX:", frame, *len);  // ⬅️ лог кадра от ТРК
                         return PROTO_OK;
                     }
+
                 }
             }
         }

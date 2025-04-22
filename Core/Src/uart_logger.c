@@ -1,9 +1,10 @@
 #include "uart_logger.h"
-#include "usart.h"      // для extern UART_HandleTypeDef huart2
+#include "usart.h"
 #include "stm32f4xx_hal.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 #define LOG_BUF_SIZE 128
 
@@ -30,13 +31,13 @@ void Logger_Log(const char *level, const char *fmt, ...)
 
 void UartLogger_Hex(const char *prefix, const uint8_t *data, size_t len)
 {
-    char buf[LOG_BUF_SIZE];
-    int pos = snprintf(buf, sizeof(buf), "%s ", prefix);
-    for (size_t i = 0; i < len && pos < (int)(sizeof(buf) - 4); i++) {
-        pos += snprintf(&buf[pos], sizeof(buf) - pos, "%02X ", data[i]);
+    char line[LOG_BUF_SIZE];
+    size_t idx = 0;
+    uint32_t tick = HAL_GetTick();
+    idx += snprintf(line + idx, sizeof(line) - idx, "[%05lu] %s", (unsigned long)tick, prefix);
+    for (size_t i = 0; i < len && idx + 4 < sizeof(line); i++) {
+        idx += snprintf(line + idx, sizeof(line) - idx, " %02X", data[i]);
     }
-    buf[pos++] = '\r';
-    buf[pos++] = '\n';
-    buf[pos] = '\0';
-    HAL_UART_Transmit(&huart2, (uint8_t*)buf, pos, HAL_MAX_DELAY);
+    snprintf(line + idx, sizeof(line) - idx, " \r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)line, strlen(line), HAL_MAX_DELAY);
 }

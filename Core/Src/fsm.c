@@ -57,6 +57,7 @@ void FSM_Init(void)
     Protocol_GasKitLink.init();
     Menu_Init(&cfg);
 
+    Display_Init();
     Display_ShowIdle();
     AppTimer_Start(IDLE_TIMER, START_MENU_TIMEOUT_MS, false);
     state = SM_IDLE;
@@ -67,10 +68,11 @@ void FSM_Init(void)
 void FSM_SendC0Request(void)
 {
     uint8_t frame[16];
-    uint8_t len = Gaskit_ReqTotals(frame, cfg.post_addr, 0);
+    uint8_t len = Gaskit_ReqTotals(frame, cfg.post_addr, cfg.nozzle_addr);
     UartLogger_Hex("UART_TX:", frame, len);
     TrkUart_Send(frame, len);
     waiting_total = true;
+    Display_ShowTwoLines("TOTAL:", "WAITING...");
     LOG_INFO("FSM: Sent C0 request\n");
 }
 
@@ -168,9 +170,8 @@ void FSM_EventProtocol(const gaskit_parsed_t *resp)
     LOG_INFO("FSM_EventProtocol: addr=%u cmd=%c len=%u\n",
              resp->address, resp->cmd, (unsigned)resp->data_len);
 
-    UartLogger_Hex("UART_RX:", (const uint8_t*)resp->data, resp->data_len);
-
     if (waiting_total && resp->cmd == 'C' && resp->data_len > 2 && resp->data[0] == '1' && resp->data[1] == ';') {
+        waiting_total = false;
         char raw[16] = {0};
         strncpy(raw, (const char *)&resp->data[2], sizeof(raw) - 1);
         if (strlen(raw) >= 3) {

@@ -1,4 +1,3 @@
-// /Src/uart_logger.c
 #include "uart_logger.h"
 #include "usart.h"      // для extern UART_HandleTypeDef huart2
 #include "stm32f4xx_hal.h"
@@ -27,4 +26,17 @@ void Logger_Log(const char *level, const char *fmt, ...)
     size_t len = (size_t)(idx + n);
     if (len > LOG_BUF_SIZE) len = LOG_BUF_SIZE;
     HAL_UART_Transmit(&huart2, (uint8_t*)buf, len, HAL_MAX_DELAY);
+}
+
+void UartLogger_Hex(const char *prefix, const uint8_t *data, size_t len)
+{
+    char buf[LOG_BUF_SIZE];
+    int pos = snprintf(buf, sizeof(buf), "%s ", prefix);
+    for (size_t i = 0; i < len && pos < (int)(sizeof(buf) - 4); i++) {
+        pos += snprintf(&buf[pos], sizeof(buf) - pos, "%02X ", data[i]);
+    }
+    buf[pos++] = '\r';
+    buf[pos++] = '\n';
+    buf[pos] = '\0';
+    HAL_UART_Transmit(&huart2, (uint8_t*)buf, pos, HAL_MAX_DELAY);
 }

@@ -27,7 +27,7 @@ size_t Gaskit_BuildFrame(uint8_t *buf,
         memcpy(&buf[idx], data, data_len);
         idx += data_len;
     }
-    buf[idx++] = Gaskit_CalcChecksum(buf, idx + 1);
+    buf[idx++] = Gaskit_CalcChecksum(buf, idx );
     return idx;
 }
 

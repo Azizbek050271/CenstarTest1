@@ -3,6 +3,8 @@
 #define UART_LOGGER_H
 
 #include <stdint.h>
+#include <stddef.h>  // <-- ДОБАВИТЬ ЭТОТ ЗАГОЛОВОК
+
 
 /**
  * @brief Инициализация логгера.
@@ -19,8 +21,11 @@ void Logger_Init(void);
 void Logger_Log(const char *level, const char *fmt, ...);
 
 /**
+ *
  * @brief Лог информационных сообщений.
  */
+void UartLogger_Hex(const char *prefix, const uint8_t *data, size_t len);
+
 #define LOG_INFO(fmt, ...)  Logger_Log("I", fmt, ##__VA_ARGS__)
 
 /**

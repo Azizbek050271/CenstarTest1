@@ -9,17 +9,21 @@
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
 #include "stm32f4xx_hal.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 #define FSM_DEBUG 1
 #define START_MENU_TIMEOUT_MS 3000
 
 static fsm_state_t state;
+static fsm_state_t prev_state;
 static eeprom_config_t cfg;
 static const TimerId IDLE_TIMER = TIMER_WELCOME;
 static uint8_t e_press_count = 0;
 
 static char input_buf[16] = {0};
 static uint8_t input_len = 0;
+static float input_value = 0.0f;
 
 #if FSM_DEBUG
 static const char* FSM_StateName(fsm_state_t s) {
@@ -30,6 +34,7 @@ static const char* FSM_StateName(fsm_state_t s) {
     case SM_VALUE_INPUT: return "VALUE_INPUT";
     case SM_AMOUNT_INPUT: return "AMOUNT_INPUT";
     case SM_FULL_MODE: return "FULL_MODE";
+    case SM_AUTHORIZED: return "AUTHORIZED";
     default: return "UNKNOWN";
     }
 }
@@ -164,6 +169,19 @@ void FSM_EventKey(char key)
             e_press_count = 0;
             return;
         }
+        if (key == 'K') {
+            input_value = strtof(input_buf, NULL);
+            char msg[20];
+            snprintf(msg, sizeof(msg), "%s", input_buf);
+            Display_ShowTwoLines("Confirmed:", msg);
+            input_len = 0;
+            input_buf[0] = '\0';
+            prev_state = state;
+            state = SM_AUTHORIZED;
+            LOG_INFO("FSM: Confirmed value %.2f, go AUTHORIZED\n", input_value);
+            LOG_FSM_STATE();
+            return;
+        }
         if (key == 'E') {
             e_press_count++;
             LOG_INFO("FSM: E pressed %u time(s) @%lu\n", e_press_count, HAL_GetTick());
@@ -185,6 +203,23 @@ void FSM_EventKey(char key)
             return;
         } else {
             e_press_count = 0;
+        }
+        return;
+    }
+
+    if (state == SM_AUTHORIZED) {
+        if (key == 'E') {
+            input_len = 0;
+            input_buf[0] = '\0';
+            state = prev_state;
+            if (prev_state == SM_AMOUNT_INPUT) {
+                Display_ShowTwoLines("Enter", "amount");
+            } else {
+                Display_ShowTwoLines("Enter", "volume");
+            }
+            LOG_INFO("FSM: Back to %s\n", FSM_StateName(state));
+            LOG_FSM_STATE();
+            return;
         }
         return;
     }

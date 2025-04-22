@@ -130,6 +130,8 @@ void FSM_EventKey(char key)
             break;
         case 'D':
             state = SM_FULL_MODE;
+            input_len = 0;
+            input_buf[0] = '\0';
             Display_ShowTwoLines("Full mode", "selected");
             break;
         }
@@ -139,10 +141,24 @@ void FSM_EventKey(char key)
     }
 
     if (state == SM_VALUE_INPUT || state == SM_AMOUNT_INPUT) {
-        if (key >= '0' && key <= '9') {
+        if ((key >= '0' && key <= '9') || key == '*') {
             if (input_len < sizeof(input_buf) - 1) {
-                input_buf[input_len++] = key;
-                input_buf[input_len] = '\0';
+                if (key == '*') {
+                    bool has_dot = false;
+                    for (uint8_t i = 0; i < input_len; ++i) {
+                        if (input_buf[i] == '.') {
+                            has_dot = true;
+                            break;
+                        }
+                    }
+                    if (!has_dot) {
+                        input_buf[input_len++] = '.';
+                        input_buf[input_len] = '\0';
+                    }
+                } else {
+                    input_buf[input_len++] = key;
+                    input_buf[input_len] = '\0';
+                }
                 Display_ShowTwoLines("Enter", input_buf);
             }
             e_press_count = 0;
@@ -154,7 +170,10 @@ void FSM_EventKey(char key)
             if (e_press_count == 1) {
                 input_len = 0;
                 input_buf[0] = '\0';
-                Display_ShowTwoLines("Cleared", "");
+                if (state == SM_VALUE_INPUT)
+                    Display_ShowTwoLines("Enter", "volume");
+                else
+                    Display_ShowTwoLines("Enter", "amount");
             } else if (e_press_count >= 2) {
                 e_press_count = 0;
                 state = SM_IDLE;
@@ -171,11 +190,34 @@ void FSM_EventKey(char key)
     }
 
     if (state == SM_FULL_MODE) {
+        if ((key >= '0' && key <= '9') || key == '*') {
+            if (input_len < sizeof(input_buf) - 1) {
+                if (key == '*') {
+                    bool has_dot = false;
+                    for (uint8_t i = 0; i < input_len; ++i) {
+                        if (input_buf[i] == '.') {
+                            has_dot = true;
+                            break;
+                        }
+                    }
+                    if (!has_dot) {
+                        input_buf[input_len++] = '.';
+                        input_buf[input_len] = '\0';
+                    }
+                } else {
+                    input_buf[input_len++] = key;
+                    input_buf[input_len] = '\0';
+                }
+                Display_ShowTwoLines("Full mode", input_buf);
+            }
+            e_press_count = 0;
+            return;
+        }
         if (key == 'E') {
             e_press_count++;
             LOG_INFO("FSM: E pressed %u time(s) @%lu\n", e_press_count, HAL_GetTick());
             if (e_press_count == 1) {
-                Display_ShowTwoLines("Press E again", "to cancel");
+                Display_ShowTwoLines("Press E again", "to exit Full");
             } else if (e_press_count >= 2) {
                 e_press_count = 0;
                 state = SM_IDLE;

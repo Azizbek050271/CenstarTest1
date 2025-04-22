@@ -18,6 +18,9 @@ static eeprom_config_t cfg;
 static const TimerId IDLE_TIMER = TIMER_WELCOME;
 static uint8_t e_press_count = 0;
 
+static char input_buf[16] = {0};
+static uint8_t input_len = 0;
+
 #if FSM_DEBUG
 static const char* FSM_StateName(fsm_state_t s) {
     switch (s) {
@@ -115,10 +118,14 @@ void FSM_EventKey(char key)
             break;
         case 'B':
             state = SM_VALUE_INPUT;
+            input_len = 0;
+            input_buf[0] = '\0';
             Display_ShowTwoLines("Enter", "volume");
             break;
         case 'C':
             state = SM_AMOUNT_INPUT;
+            input_len = 0;
+            input_buf[0] = '\0';
             Display_ShowTwoLines("Enter", "amount");
             break;
         case 'D':
@@ -131,7 +138,39 @@ void FSM_EventKey(char key)
         return;
     }
 
-    if (state == SM_VALUE_INPUT || state == SM_AMOUNT_INPUT || state == SM_FULL_MODE) {
+    if (state == SM_VALUE_INPUT || state == SM_AMOUNT_INPUT) {
+        if (key >= '0' && key <= '9') {
+            if (input_len < sizeof(input_buf) - 1) {
+                input_buf[input_len++] = key;
+                input_buf[input_len] = '\0';
+                Display_ShowTwoLines("Enter", input_buf);
+            }
+            e_press_count = 0;
+            return;
+        }
+        if (key == 'E') {
+            e_press_count++;
+            LOG_INFO("FSM: E pressed %u time(s) @%lu\n", e_press_count, HAL_GetTick());
+            if (e_press_count == 1) {
+                input_len = 0;
+                input_buf[0] = '\0';
+                Display_ShowTwoLines("Cleared", "");
+            } else if (e_press_count >= 2) {
+                e_press_count = 0;
+                state = SM_IDLE;
+                Display_ShowIdle();
+                AppTimer_Start(IDLE_TIMER, START_MENU_TIMEOUT_MS, false);
+                LOG_INFO("FSM: Exit to SM_IDLE @%lu\n", HAL_GetTick());
+                LOG_FSM_STATE();
+            }
+            return;
+        } else {
+            e_press_count = 0;
+        }
+        return;
+    }
+
+    if (state == SM_FULL_MODE) {
         if (key == 'E') {
             e_press_count++;
             LOG_INFO("FSM: E pressed %u time(s) @%lu\n", e_press_count, HAL_GetTick());

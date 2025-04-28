@@ -11,6 +11,7 @@
 #include "protocol_gaskit.h"
 #include "uart_trk.h"
 #include "commands_gaskit.h"
+#include "usart.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -53,6 +54,9 @@ void FSM_Init(void)
         LOG_ERROR("FSM_Init: EEPROM init failed\n");
     }
     EepromStorage_Load(&cfg);
+
+    USART3_SetBaudrate(cfg.uart3_baud);
+    LOG_INFO("Set UART3 to %lu baud", cfg.uart3_baud);
 
     Protocol_GasKitLink.init();
     Menu_Init(&cfg);
@@ -170,14 +174,21 @@ void FSM_EventProtocol(const gaskit_parsed_t *resp)
     LOG_INFO("FSM_EventProtocol: addr=%u cmd=%c len=%u\n",
              resp->address, resp->cmd, (unsigned)resp->data_len);
 
+    // отобразить сырые данные вне зависимости от парсинга
+    char raw[17] = {0};
+    memcpy(raw, resp->data, (resp->data_len > 16 ? 16 : resp->data_len));
+    Display_ShowTwoLines("RAW RX:", raw);
+    LOG_INFO("FSM RAW = %s\n", raw);
+
+    // оригинальная обработка
     if (waiting_total && resp->cmd == 'C' && resp->data_len > 2 && resp->data[0] == '1' && resp->data[1] == ';') {
         waiting_total = false;
-        char raw[16] = {0};
-        strncpy(raw, (const char *)&resp->data[2], sizeof(raw) - 1);
-        if (strlen(raw) >= 3) {
-            size_t len = strlen(raw);
+        char data_copy[16] = {0};
+        strncpy(data_copy, (const char *)&resp->data[2], sizeof(data_copy) - 1);
+        if (strlen(data_copy) >= 3) {
+            size_t len = strlen(data_copy);
             char formatted[20];
-            snprintf(formatted, sizeof(formatted), "%.*s.%s", (int)(len - 3), raw, raw + len - 3);
+            snprintf(formatted, sizeof(formatted), "%.*s.%s", (int)(len - 3), data_copy, data_copy + len - 3);
             Display_ShowTwoLines("TOTAL:", formatted);
             LOG_INFO("FSM: TOTAL = %s\n", formatted);
         }
